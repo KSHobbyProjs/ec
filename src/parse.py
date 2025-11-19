@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from . import pmm
+from . import physics_models as pm
 
 import logging
 logger = logging.getLogger(__name__)
@@ -51,6 +51,43 @@ def parse_parameter_values(parameter_string):
 
     # otherwise, assume a single float
     return np.array([float(s)])
+
+def parse_model_instance(model_string):
+    """
+    Parses a CLI argument for the physics model.
+
+    Parameters
+    ----------
+    model_string : str
+        CLI string containing model info.
+
+    Returns
+    -------
+    model_instance : BaseModel
+        An instance of a class that subclasses the abstract class `BaseModel`.
+
+    Examples
+    --------
+    'gaussian.Gaussian1d:N=128,V0=-4.0,R=2.0' -> pm.gaussian.Gaussian1d(N=128, V0=-4.0, R=2.0)
+    'independent.Independent'                 -> pm.independent.Independent()
+    """
+    s = model_string.strip()
+
+    if ":" in s:
+        model_name, model_kwargs_str = s.split(":", 1)
+        model_kwargs = parse_kwargs(model_kwargs_str)
+    else:
+        model_name = s
+        model_kwargs = {}
+
+    submodule_name, class_name = model_name.split(".", 1)
+    try:
+        submodule = getattr(pm, submodule_name)
+        ModelClass = getattr(submodule, class_name)
+    except AttributeError as e:
+        raise RuntimeError(f"Model {model_name} not found in `physics_models` module.") from e
+    model_instance = ModelClass(**model_kwargs)
+    return model_instance
  
 def parse_kwargs(kwargs_string):
     """

@@ -17,6 +17,10 @@ import numpy as np
 import scipy.sparse as ss
 import scipy.ndimage as sn
 import scipy
+
+import logging
+logger = logging.getLogger(__name__)
+
 class EC: 
     """
     Class for handling eigenvector continuation computations.
@@ -61,8 +65,50 @@ class EC:
         self._sample_vectors = None
         self._S = None
 
+    def sample_from_given_data(self, sample_Ls, sample_energies, sample_eigenvectors):
+        """
+        Store given eigenpairs of H(L) for each parameter L in `sample_Ls`.
 
-    def sample(self, sample_Ls, k_num=1):
+        Parameters
+        ----------
+        sample_Ls : ndarray
+            List of parameters to sample the Hamiltonian at.
+        sample_energies : ndarray
+            List of k_num energies at each parameter in `sample_Ls`. 
+            Shape (len(`sample_Ls`), k_num).
+        sample_eigenvectors : ndarray
+            List of k_num eigenvectors at each parameter in `sample_Ls`.
+            Shape (len(`sample_Ls`), k_num, vector_dimension).
+
+        Returns
+        -------
+            None.
+
+        Notes
+        -------
+        This method populates the following attributes:
+        
+        - `self._sample_Ls` : ndarray
+            Array of sampled L values.
+        - `self._sample_energies` : ndarray
+            Array of sampled energies.
+        - `self._sample_vectors` : ndarray
+            Array of sampled eigenvectors, equal to `eigvecs`.
+        - `self._S` : ndarray
+            Overlap matrix between sampled eigenvectors, shape (m, m),
+            where m = len(eigvecs).
+        """
+        self._sample_Ls = sample_Ls
+        self._sample_energies = sample_energies
+        eigvecs = sample_eigenvectors.reshape(-1, sample_eigenvectors.shape[2])  # flatten eigvecs
+        self._sample_vectors = eigvecs 
+
+        self._S = eigvecs.conj() @ eigvecs.T
+        if np.linalg.cond(self._S) > 1e10:
+            logger.warning("Ill-conditioned overlap matrix S; check sample vectors.") # warn user if S is near singular
+        
+
+    def sample_from_model(self, sample_Ls, k_num=1):
         """
         Compute and store the lowest `k_num` eigenpairs of H(L) for each parameter L in `sample_Ls`.
 
@@ -97,7 +143,8 @@ class EC:
         self._sample_energies = energies
         self._sample_vectors = eigvecs
         self._S = eigvecs.conj() @ eigvecs.T
-        if np.linalg.cond(self._S) > 1e10: print("raise np.linalg.LinAlgError('Ill-conditioned overlap matrix S; check sample vectors.')") # raise error if S is near singular
+        if np.linalg.cond(self._S) > 1e10: 
+            logger.warning("Ill-conditioned overlap matrix S; check sample vectors.") # warn user if S is near singular
         self._sample_Ls = sample_Ls
         return eigvecs
 
@@ -110,7 +157,7 @@ class EC:
         target_Ls : float or array_like
             Parameter (or list of parameters) to estimate eigenpairs at.
         k_num : int, optional
-            Number of lowest eigenpairs to predict. Default is 1.
+            Number of lowest eigenpairs to predict. Default is all.
         dilate : bool, optional
             If True, dilates the sampled eigenvectors to match the target `target_Ls`
             before computing the projected matrices. This option only makes sense when
@@ -129,7 +176,9 @@ class EC:
         RuntimeError
             If `sample()` has not been called prior to prediction.
         """
-
+        if dilate:
+            logger.warning(f"dilate only set up for 3d (flattened) eigenvectors. Do not use if eigenvector is not 3d.")
+        
         if self._sample_vectors is None or self._S is None or self._sample_Ls is None:
             raise RuntimeError("No sampled vectors found. Run `sample()` first.")
         
@@ -187,7 +236,7 @@ class EC:
         temp_vecs = self._sample_vectors
         temp_S = self._S
 
-        self.sample(sample_Ls, k_num_sample)
+        self.sample_from_model(sample_Ls, k_num_sample)
         eigenvalues, eigenvectors = self.ec_predict(target_Ls, k_num_predict, dilate)
 
         self._sample_vectors = temp_vecs
@@ -315,7 +364,6 @@ class EC:
         -------
         Calls `_get_base_coods()`, updating `_base_coods` if necessary.
         """
-
         if psi.ndim == 1:
             psi = psi[None, :] # make it (1, N^3)
 
