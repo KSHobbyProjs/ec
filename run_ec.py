@@ -43,6 +43,8 @@ def _load_data_from_input_file(input_file):
     if not input_file.endswith(".h5"):
         logger.warning(f"{input_file} must be an HDF5 file but does not end in .h5. Attempting to load as an HDF5 file anyway.")
     sample_Ls, sample_energies, sample_eigenvectors, metadata = io.load_energies_from_h5(input_file)
+    if sample_eigenvectors is None: 
+        raise RuntimeError(f"Eigenvectors must be stored in `eigenvectors` dataset in the .h5 file. No such dataset found.")
     logger.debug(f"Loaded energy data from HDF5 file.")
     
     # look for model in file metadata
