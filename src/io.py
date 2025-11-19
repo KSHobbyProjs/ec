@@ -153,6 +153,9 @@ def load_energies_from_h5(path):
 
 def load_energies_from_dat(path):
     data = np.loadtxt(path, delimiter="\t", comments="#")
+    if data.ndim == 1:
+        # re-expand if numpy flattens because L is 1d
+        data = reshape(1, -1)
     parameters = data[:, 0]
     energies = data[:, 1:]
     
