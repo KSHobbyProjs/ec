@@ -84,6 +84,7 @@ def write_energies_to_dat(path, parameters, energies, metadata=None):
         metadata = metadata or {}
         for key, val in metadata.items():
             f.write(f"# {key} : {val}\n")
+        # add parameters, energies columns
         np.savetxt(f, np.column_stack([parameters, energies]), fmt="%.8f", delimiter="\t")
 
 def load_energies_from_h5(path):
@@ -142,6 +143,9 @@ def load_energies_from_h5(path):
         if eigenvectors is not None:
             eigenvectors = eigenvectors[:]
 
+        # validate data to ensure compatibility with program
+        parameters, energies, eigenvectors = _validate_eigenpair_data(parameters, energies, eigenvectors)
+
         # load metadata
         metadata = dict(f.attrs)
 
@@ -151,7 +155,10 @@ def load_energies_from_dat(path):
     data = np.loadtxt(path, delimiter="\t", comments="#")
     parameters = data[:, 0]
     energies = data[:, 1:]
-   
+    
+    # validate data to ensure compatibility with program
+    parameters, energies, _ = _validate_eigenpair_data(parameters, energies, None)
+
     # load metadata
     metadata = {}
     with open(path, "r") as f:
@@ -163,3 +170,41 @@ def load_energies_from_dat(path):
                     key, val = line.split(":", 1)
                     metadata[key.strip()] = val.strip() 
     return parameters, energies, metadata
+ 
+def _validate_eigenpair_data(parameters, energies, eigenvectors):
+    logger.debug(f"Validating parameters, energies, and eigenvectors from I/O.")
+    parameters, energies = np.atleast_1d(np.asarray(parameters)), np.atleast_1d(np.asarray(energies))
+    
+    # handle parameters
+    if parameters.ndim > 1: 
+        raise ValueError(f"parameters can't be more than 1d, got {parameters.ndim}.")
+
+    # handle energies
+    if parameters.shape[0] != energies.shape[0]:
+        raise ValueError(f"parameters and energies need to have the same 1st dimension, got "
+                         f"{parameters.shape[0]} vs {energies.shape[0]}.")
+    if energies.ndim == 1:
+        logger.debug(f"energies has shape {energies.shape}. Broadcasting to ({len(energies)}, 1).")
+        energies = energies[:, None]
+    elif energies.ndim > 2:
+        raise ValueError(f"energies can't be more than 2d, got {energies.ndim}.") 
+
+    # handle eigenvectors
+    if eigenvectors is not None:
+        eigenvectors = np.atleast_1d(np.asarray(eigenvectors))
+        if eigenvectors.ndim == 1:
+            # interpret as one vector given for one parameter
+            logger.debug(f"eigenvectors has shape {eigenvectors.shape}, broadcasting to (1, 1, {len(eigenvectors)}).")
+            eigenvectors = eigenvectors[None, None, :]
+        elif eigenvectors.ndim == 2:
+            # interpret as one vector for multiple parameters
+            logger.debug(f"eigenvectors has shape {eigenvectors.shape}, broadcasting to ({eigenvectors.shape[0]}, 1, {eigenvectors.shape[1]}).")
+            eigenvectors = eigenvectors[:, None, :]
+        elif eigenvectors.ndim > 3:
+            raise ValueError(f"eigenvectors can't be more than 3d, got {eigenvectors.ndim}.")
+        if eigenvectors.shape[:2] != energies.shape:
+            raise ValueError(f"energies and eigenvectors must have the same shape along the first 2 dimensions, got "
+                             f"{energies.shape} vs {eigenvectors.shape[1:]}") 
+
+    logger.debug(f"Validated I/O parameters, energies, and eigenvectors to shape {parameters.shape}, {energies.shape}, {eigenvectors.shape if eigenvectors is not None else None}.")
+    return parameters, energies, eigenvectors
