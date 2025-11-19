@@ -62,7 +62,7 @@ def _get_ec_instance(inputfile_model, args_model):
             raise RuntimeError(f"No model given in command line and no model written in input file's metadata.")
         model_instance = parse.parse_model_instance(inputfile_model)
     
-    logger.info(f"Using model {type(model_instance).__name__}(" + ','.join(f"{k[1:]}={v}" for k, v in vars(model_instance).items()) + ").")
+    logger.info(f"Using model {type(model_instance).__name__}(" + ','.join(f"{k[1:]}={v} ({type(v).__name__})" for k, v in vars(model_instance).items()) + ").")
     ec_instance = ec.EC(model_instance)
     return ec_instance
 
