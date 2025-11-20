@@ -1,5 +1,5 @@
 # ec
-A toolkit for running eigenvector continuation (EC) on eigenvalue data read from a file.
+A toolkit for running eigenvector continuation (EC) on eigenpair data read from a file.
 
 ---
 
