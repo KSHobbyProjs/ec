@@ -42,5 +42,8 @@ class Ising(base_model.BaseModel):
         for i, sigma in enumerate(sigmas):
             H1 += sigma[0] @ sigmas[(i + 1) % self._N][0]
             H2 += sigma[1]
-        return -self._J * (H1 + g * H2)
+        H = -self._J * (H1 + g * H2)
+        if H.shape[0] < 50: # convert to dense matrix if small enough
+            H = np.array(H.todense())
+        return H
 

@@ -16,6 +16,7 @@ BaseModel
 
 import abc
 import numpy as np
+import scipy
 import scipy.sparse as ss
 
 import logging
@@ -106,12 +107,19 @@ class BaseModel(abc.ABC):
         Falls back internally to a dense solver for very small matrices.
         """
         Ls = np.atleast_1d(L)
+        temp_H = self.construct_H(Ls[0])
         eigenvalues = np.zeros((len(Ls), k_num), dtype=np.float64)
-        eigenvectors = np.zeros((len(Ls), k_num, self.construct_H(Ls[0]).shape[0]), dtype=np.complex128)
+        eigenvectors = np.zeros((len(Ls), k_num, temp_H.shape[0]), dtype=np.complex128)
+        
+        sparse = ss.issparse(temp_H)
+
         for i, Li in enumerate(Ls):
             logger.info(f"Computing eigenpairs for L={Li}.")
             H = self.construct_H(Li)
-            eigvals, eigvecs = ss.linalg.eigsh(H, k=k_num, which='SA')
+            if sparse: # use sparse solver (ARPACK)
+                eigvals, eigvecs = ss.linalg.eigsh(H, k=k_num, which='SA')
+            else: # use dense solver (LAPACK)
+                eigvals, eigvecs = scipy.linalg.eigh(H)
             sort_indices = np.argsort(eigvals)
             eigenvalues[i] = eigvals[sort_indices][:k_num]
             eigenvectors[i] = eigvecs[:, sort_indices][:, :k_num].T
