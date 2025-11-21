@@ -36,6 +36,7 @@ def _parse_args():
     parser.add_argument("--vectors", action="store_true", help="Output eigenvectors as well as eigenvalues.")
     parser.add_argument("--dilate", action="store_true", help="Dilate the sample vectors to the predicted volume.")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity (-v, -vv).")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Turn off print output.")
     args = parser.parse_args()
     return args
 
@@ -43,8 +44,8 @@ def _load_data_from_input_file(input_file):
     if not input_file.endswith(".h5"):
         logger.warning(f"{input_file} must be an HDF5 file but does not end in .h5. Attempting to load as an HDF5 file anyway.")
     sample_Ls, sample_energies, sample_eigenvectors, metadata = io.load_energies_from_h5(input_file)
-    if sample_eigenvectors is None: 
-        raise RuntimeError(f"Eigenvectors must be stored in `eigenvectors` dataset in the .h5 file. No such dataset found.")
+    if sample_eigenvectors is None:
+        raise RuntimeError("Eigenvectors must be stored in `eigenvectors` dataset in the .h5 file. No such dataset found.")
     logger.debug(f"Loaded energy data from HDF5 file.")
     
     # look for model in file metadata
@@ -130,7 +131,8 @@ def main():
         _write_results(args, inputfile_model, predict_Ls, predicted_energies, predicted_eigenvectors)
 
     # print results
-    _print_results(args, predict_Ls, predicted_energies, predicted_eigenvectors)
+    if not args.quiet:
+        _print_results(args, predict_Ls, predicted_energies, predicted_eigenvectors)
     end = time.time()
     print(f"Done.\nElapsed time: {end - start:.3f} seconds.")
 
