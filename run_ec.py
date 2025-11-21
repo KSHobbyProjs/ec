@@ -89,17 +89,27 @@ def _write_results(args, inputfile_model, Ls, eigenvalues, eigenvectors):
         logging.debug("Finished writing text output file.")
 
 def _print_results(args, Ls, eigenvalues, eigenvectors):
+    trnc = 9 # num of eigenvalues to print before skipping rest
+    vectrnc = 4 # num of eigenvectors to print before skipping rest
+    knum = args.knum if args.knum is not None else len(eigenvalues[0])
     for i, L in enumerate(Ls):
         print(f"Spectrum at L = {L:.3f}")
-        trnc = 5 if args.knum is None else args.knum
-        print(f"\t{eigenvalues[i][:trnc]} ... [{len(eigenvalues[i])} energies total]") # if knum isn't specified, truncate to the first 5
+        print(f"\t[ " + ", ".join(f"{eigval:.6f}" for eigval in eigenvalues[i][:trnc]), end="")
+        
+        if knum > trnc: 
+            print(f", ..., {eigenvalues[i][-1]:.6f} ] ({len(eigenvalues[i])} energies total)")
+        else: 
+            print(" ]")
+        
         if args.vectors:
             for k, vec in enumerate(eigenvectors[i][:trnc]):
                 # print only the first 4 elements of each eigenvector
                 # (prints all elements if 4 > len(vec))
                 formatted_eigenvecs = [f"{v.real:.4f} + {v.imag:.4f}j" for v in vec[:4]]
                 print(f"\tEigenvector {k}: {formatted_eigenvecs} ... [{len(vec)} entries total]")
-            print(f"... [{len(eigenvectors[i])} eigenvectors total].")
+            
+            if knum > vectrnc:
+                print(f"... ({len(eigenvectors[i])} eigenvectors total).")
 
 def main():
     args = _parse_args()
